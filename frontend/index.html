@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Media Downloader</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <div class="downloader-card">
+
+            <h1>Media Downloader</h1>
+
+            <p>
+                Download permitted audio and video files
+            </p>
+
+            <!-- URL + Analyze -->
+            <div class="downloader-box">
+
+                <input
+                    type="text"
+                    id="urlInput"
+                    placeholder="Paste video URL here..."
+                >
+
+                <button id="analyzeBtn">
+                    Analyze
+                </button>
+
+            </div>
+
+            <!-- Format + Quality -->
+            <div class="options">
+
+                <div class="option-group">
+
+                    <label for="formatSelect">
+                        Format
+                    </label>
+
+                    <select id="formatSelect">
+                        <option value="video">Video</option>
+                        <option value="audio">Audio</option>
+                    </select>
+
+                </div>
+
+                <div class="option-group">
+
+                    <label for="qualitySelect">
+                        Quality
+                    </label>
+
+                    <select id="qualitySelect">
+
+    <option value="best">
+        Best Available
+    </option>
+
+    <option value="1080">
+        1080p
+    </option>
+
+    <option value="720">
+        720p
+    </option>
+
+    <option value="480">
+        480p
+    </option>
+
+    <option value="360">
+        360p
+    </option>
+
+</select>
+
+                </div>
+
+            </div>
+
+            <!-- Download Section -->
+            <div class="download-section">
+
+                <button
+                    id="downloadBtn"
+                    class="download-btn"
+                >
+                    Download
+                </button>
+
+                <p
+                    id="statusMessage"
+                    class="status-message"
+                >
+                    Ready
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>
