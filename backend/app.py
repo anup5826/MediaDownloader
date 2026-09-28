@@ -4,6 +4,10 @@ from flask_cors import CORS
 from media.audio import process_audio
 from media.video import process_video
 
+import os
+import uuid
+import yt_dlp
+
 
 app = Flask(__name__)
 
@@ -82,7 +86,9 @@ def analyze():
             }), 400
 
 
+        # =========================
         # AUDIO PROCESSING
+        # =========================
 
         if format_type == "audio":
 
@@ -96,7 +102,9 @@ def analyze():
             )
 
 
+        # =========================
         # VIDEO PROCESSING
+        # =========================
 
         else:
 
@@ -110,7 +118,9 @@ def analyze():
             )
 
 
+        # =========================
         # PROCESSING ERROR
+        # =========================
 
         if processing_result.get(
             "status"
@@ -126,7 +136,9 @@ def analyze():
             }), 400
 
 
+        # =========================
         # SUCCESS RESPONSE
+        # =========================
 
         return jsonify({
 
@@ -164,9 +176,9 @@ def analyze():
         }), 500
 
 
-# =========================
+# ==================================================
 # DOWNLOAD REQUEST
-# =========================
+# ==================================================
 
 @app.route(
     "/api/download",
@@ -187,7 +199,9 @@ def download():
             }), 400
 
 
+        # =========================
         # GET DATA
+        # =========================
 
         url = data.get(
             "url",
@@ -205,7 +219,9 @@ def download():
         ).lower()
 
 
+        # =========================
         # URL VALIDATION
+        # =========================
 
         if not url:
 
@@ -227,7 +243,9 @@ def download():
             }), 400
 
 
+        # =========================
         # FORMAT VALIDATION
+        # =========================
 
         if format_type not in [
             "audio",
@@ -241,7 +259,9 @@ def download():
             }), 400
 
 
+        # =========================
         # QUALITY VALIDATION
+        # =========================
 
         if format_type == "audio":
 
@@ -271,14 +291,216 @@ def download():
             }), 400
 
 
-        # REQUEST VALIDATED
+        # =========================
+        # DOWNLOAD FOLDER
+        # =========================
+
+        download_folder = os.path.join(
+            app.root_path,
+            "downloads"
+        )
+
+        os.makedirs(
+            download_folder,
+            exist_ok=True
+        )
+
+
+        # =========================
+        # UNIQUE FILE NAME
+        # =========================
+
+        file_id = uuid.uuid4().hex
+
+
+        # =========================
+        # VIDEO SETTINGS
+        # =========================
+
+        if format_type == "video":
+
+            if quality == "best":
+
+                format_selector = (
+                    "bestvideo+bestaudio/"
+                    "best"
+                )
+
+            else:
+
+                format_selector = (
+                    f"bestvideo[height<={quality}]"
+                    "+bestaudio/"
+                    f"best[height<={quality}]"
+                )
+
+
+            output_template = os.path.join(
+                download_folder,
+                f"{file_id}.%(ext)s"
+            )
+
+
+            ydl_options = {
+
+                "format":
+                    format_selector,
+
+                "outtmpl":
+                    output_template,
+
+                "noplaylist":
+                    True,
+
+                "quiet":
+                    True,
+
+                "no_warnings":
+                    True
+
+            }
+
+
+        # =========================
+        # AUDIO SETTINGS
+        # =========================
+
+        else:
+
+            output_template = os.path.join(
+                download_folder,
+                f"{file_id}.%(ext)s"
+            )
+
+
+            ydl_options = {
+
+                "format":
+                    "bestaudio/best",
+
+                "outtmpl":
+                    output_template,
+
+                "noplaylist":
+                    True,
+
+                "quiet":
+                    True,
+
+                "no_warnings":
+                    True
+
+            }
+
+
+        # =========================
+        # ACTUAL MEDIA DOWNLOAD
+        # =========================
+
+        try:
+
+            with yt_dlp.YoutubeDL(
+                ydl_options
+            ) as ydl:
+
+                info = ydl.extract_info(
+                    url,
+                    download=True
+                )
+
+                downloaded_file = (
+                    ydl.prepare_filename(info)
+                )
+
+
+        except Exception as download_error:
+
+            print(
+                "Media download error:",
+                download_error
+            )
+
+            return jsonify({
+
+                "status":
+                    "error",
+
+                "message":
+                    "Media could not be downloaded.",
+
+                "error":
+                    str(download_error)
+
+            }), 400
+
+
+        # =========================
+        # FIND DOWNLOADED FILE
+        # =========================
+
+        base_name = os.path.splitext(
+            downloaded_file
+        )[0]
+
+        actual_file = None
+
+
+        for filename in os.listdir(
+            download_folder
+        ):
+
+            file_path = os.path.join(
+                download_folder,
+                filename
+            )
+
+            if (
+                os.path.isfile(file_path)
+                and filename.startswith(
+                    os.path.basename(base_name)
+                )
+            ):
+
+                actual_file = filename
+
+                break
+
+
+        if not actual_file:
+
+            return jsonify({
+
+                "status":
+                    "error",
+
+                "message":
+                    "Downloaded file could not be found."
+
+            }), 500
+
+
+        # =========================
+        # DOWNLOAD URL
+        # =========================
+
+        download_url = (
+            request.host_url.rstrip("/")
+            + "/api/local-download/"
+            + actual_file
+        )
+
+
+        # =========================
+        # SUCCESS
+        # =========================
 
         return jsonify({
 
-            "status": "success",
+            "status":
+                "success",
 
             "message":
-                "Download request validated.",
+                "Media downloaded successfully.",
 
             "url":
                 url,
@@ -287,7 +509,13 @@ def download():
                 format_type,
 
             "quality":
-                quality
+                quality,
+
+            "filename":
+                actual_file,
+
+            "download_url":
+                download_url
 
         })
 
@@ -301,24 +529,26 @@ def download():
 
         return jsonify({
 
-            "status": "error",
+            "status":
+                "error",
 
             "message":
-                "Download request failed."
+                "Download request failed.",
+
+            "error":
+                str(error)
 
         }), 500
 
 
-# =========================
+# ==================================================
 # LOCAL FILE LIST
-# =========================
+# ==================================================
 
 @app.route("/api/local-files")
 def local_files():
 
     try:
-
-        import os
 
         download_folder = os.path.join(
             app.root_path,
@@ -384,9 +614,9 @@ def local_files():
         }), 500
 
 
-# =========================
+# ==================================================
 # LOCAL FILE DOWNLOAD
-# =========================
+# ==================================================
 
 @app.route(
     "/api/local-download/<path:filename>"
@@ -394,8 +624,6 @@ def local_files():
 def local_download(filename):
 
     try:
-
-        import os
 
         download_folder = os.path.join(
             app.root_path,
@@ -445,12 +673,19 @@ def local_download(filename):
         }), 500
 
 
-# =========================
+# ==================================================
 # START SERVER
-# =========================
+# ==================================================
 
 if __name__ == "__main__":
 
     app.run(
+        host="0.0.0.0",
+        port=int(
+            os.environ.get(
+                "PORT",
+                5000
+            )
+        ),
         debug=True
     )
