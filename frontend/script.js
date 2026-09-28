@@ -540,4 +540,3 @@ async function checkLocalFiles() {
 
 testBackend();
 
-checkLocalFiles();
