@@ -14,14 +14,11 @@ const downloadBtn = document.getElementById("downloadBtn");
 ========================= */
 
 /*
-   LOCAL TEST:
-   http://127.0.0.1:5000
-
-   AFTER PUBLISHING:
-   Change this to your public Flask backend URL.
+   LIVE RENDER BACKEND
 */
 
-const BACKEND_URL = "http://127.0.0.1:5000";
+const BACKEND_URL =
+    "https://mediadownloader-c7x1.onrender.com";
 
 
 /* =========================
@@ -450,6 +447,7 @@ async function testBackend() {
             await response.json();
 
         console.log(
+            "Backend:",
             data.message
         );
 
