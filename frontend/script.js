@@ -13,10 +13,6 @@ const downloadBtn = document.getElementById("downloadBtn");
    BACKEND CONFIGURATION
 ========================= */
 
-/*
-   LIVE RENDER BACKEND
-*/
-
 const BACKEND_URL =
     "https://mediadownloader-c7x1.onrender.com";
 
@@ -29,6 +25,18 @@ downloadBtn.disabled = true;
 
 
 /* =========================
+   HELPER FUNCTIONS
+========================= */
+
+function showStatus(message, color) {
+
+    statusMessage.textContent = message;
+    statusMessage.style.color = color;
+
+}
+
+
+/* =========================
    ANALYZE BUTTON
 ========================= */
 
@@ -38,23 +46,22 @@ analyzeBtn.addEventListener("click", function () {
 
     if (url === "") {
 
-        statusMessage.textContent =
-            "Please enter a video URL.";
-
-        statusMessage.style.color =
-            "#ff6b6b";
+        showStatus(
+            "Please enter a video URL.",
+            "#ff6b6b"
+        );
 
         return;
     }
 
+
     analyzeBtn.disabled = true;
     analyzeBtn.textContent = "Analyzing...";
 
-    statusMessage.textContent =
-        "Sending URL to backend...";
-
-    statusMessage.style.color =
-        "#facc15";
+    showStatus(
+        "Sending URL to backend...",
+        "#facc15"
+    );
 
 
     fetch(
@@ -82,16 +89,32 @@ analyzeBtn.addEventListener("click", function () {
         }
     )
 
-    .then(response => {
+    .then(async response => {
+
+        let data = {};
+
+        try {
+
+            data = await response.json();
+
+        } catch (error) {
+
+            data = {};
+
+        }
+
 
         if (!response.ok) {
 
             throw new Error(
-                "Server returned an error."
+                data.message ||
+                `Server returned ${response.status} error.`
             );
+
         }
 
-        return response.json();
+
+        return data;
 
     })
 
@@ -113,27 +136,30 @@ analyzeBtn.addEventListener("click", function () {
 
                 if (data.processing.quality) {
 
-                    statusMessage.textContent =
+                    showStatus(
                         data.processing.message +
                         " Quality: " +
-                        data.processing.quality;
+                        data.processing.quality,
+                        "#4ade80"
+                    );
 
                 } else {
 
-                    statusMessage.textContent =
-                        data.processing.message;
+                    showStatus(
+                        data.processing.message,
+                        "#4ade80"
+                    );
 
                 }
 
             } else {
 
-                statusMessage.textContent =
-                    "Request processed successfully.";
+                showStatus(
+                    "Request processed successfully.",
+                    "#4ade80"
+                );
 
             }
-
-            statusMessage.style.color =
-                "#4ade80";
 
 
             console.log(
@@ -145,12 +171,11 @@ analyzeBtn.addEventListener("click", function () {
 
             downloadBtn.disabled = true;
 
-            statusMessage.textContent =
+            showStatus(
                 data.message ||
-                "Request failed.";
-
-            statusMessage.style.color =
-                "#ff6b6b";
+                "Request failed.",
+                "#ff6b6b"
+            );
 
         }
 
@@ -163,15 +188,16 @@ analyzeBtn.addEventListener("click", function () {
 
         downloadBtn.disabled = true;
 
-        statusMessage.textContent =
-            "Could not connect to backend.";
 
-        statusMessage.style.color =
-            "#ff6b6b";
+        showStatus(
+            error.message ||
+            "Could not connect to backend.",
+            "#ff6b6b"
+        );
 
 
         console.error(
-            "Backend error:",
+            "Analyze error:",
             error
         );
 
@@ -271,18 +297,18 @@ qualitySelect.addEventListener(
 
 downloadBtn.addEventListener(
     "click",
-    function () {
+    async function () {
 
         const url =
             urlInput.value.trim();
 
+
         if (url === "") {
 
-            statusMessage.textContent =
-                "Please enter a video URL first.";
-
-            statusMessage.style.color =
-                "#ff6b6b";
+            showStatus(
+                "Please enter a video URL first.",
+                "#ff6b6b"
+            );
 
             return;
         }
@@ -293,92 +319,151 @@ downloadBtn.addEventListener(
         downloadBtn.textContent =
             "Processing...";
 
-        statusMessage.textContent =
-            "Sending request to backend...";
 
-        statusMessage.style.color =
-            "#facc15";
+        showStatus(
+            "Preparing your download...",
+            "#facc15"
+        );
 
 
-        fetch(
-            `${BACKEND_URL}/api/download`,
-            {
+        try {
 
-                method: "POST",
+            const response =
+                await fetch(
+                    `${BACKEND_URL}/api/download`,
+                    {
 
-                headers: {
-                    "Content-Type":
-                        "application/json"
-                },
+                        method: "POST",
 
-                body: JSON.stringify({
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
 
-                    url: url,
+                        body: JSON.stringify({
 
-                    format:
-                        formatSelect.value,
+                            url: url,
 
-                    quality:
-                        qualitySelect.value
+                            format:
+                                formatSelect.value,
 
-                })
+                            quality:
+                                qualitySelect.value
+
+                        })
+
+                    }
+                );
+
+
+            /*
+             * Try to read JSON response.
+             */
+
+            let data = {};
+
+            try {
+
+                data =
+                    await response.json();
+
+            } catch (jsonError) {
+
+                data = {};
 
             }
-        )
 
-        .then(response => {
+
+            console.log(
+                "Download backend response:",
+                data
+            );
+
+
+            /*
+             * IMPORTANT:
+             * Show actual backend error.
+             */
 
             if (!response.ok) {
 
                 throw new Error(
-                    "Server returned an error."
+                    data.message ||
+                    `Download request failed (${response.status}).`
                 );
+
             }
 
-            return response.json();
 
-        })
-
-        .then(data => {
+            /*
+             * Backend returned an error
+             * even though HTTP status was OK.
+             */
 
             if (
-                data.status === "success"
+                data.status !== "success"
             ) {
 
-                statusMessage.textContent =
-                    "Request validated. Preparing download...";
+                throw new Error(
+                    data.message ||
+                    "Download request failed."
+                );
 
-                statusMessage.style.color =
-                    "#4ade80";
+            }
 
 
-                console.log(
-                    "Download request:",
-                    data
+            /*
+             * SUCCESS
+             */
+
+            showStatus(
+                data.message ||
+                "Download is being prepared...",
+                "#4ade80"
+            );
+
+
+            /*
+             * Check possible download URL fields.
+             */
+
+            const downloadUrl =
+                data.download_url ||
+                data.file_url ||
+                data.downloadUrl ||
+                data.fileUrl;
+
+
+            /*
+             * If backend provides a file URL,
+             * start browser download.
+             */
+
+            if (downloadUrl) {
+
+                showStatus(
+                    "Download ready. Starting download...",
+                    "#4ade80"
                 );
 
 
-                setTimeout(
-                    function () {
+                const link =
+                    document.createElement("a");
 
-                        downloadBtn.disabled =
-                            false;
+                link.href =
+                    downloadUrl;
 
-                        downloadBtn.textContent =
-                            "Download";
+                link.download = "";
 
-                        statusMessage.textContent =
-                            "Download is ready when a permitted local media file is available.";
+                link.target =
+                    "_blank";
 
-                        statusMessage.style.color =
-                            "#4ade80";
+                document.body.appendChild(link);
 
-                    },
-                    1000
-                );
+                link.click();
 
+                link.remove();
 
-            } else {
 
                 downloadBtn.disabled =
                     false;
@@ -386,18 +471,74 @@ downloadBtn.addEventListener(
                 downloadBtn.textContent =
                     "Download";
 
-                statusMessage.textContent =
-                    data.message ||
-                    "Download request failed.";
 
-                statusMessage.style.color =
-                    "#ff6b6b";
-
+                return;
             }
 
-        })
 
-        .catch(error => {
+            /*
+             * Some backends may return a file
+             * name instead of a full URL.
+             */
+
+            if (data.filename) {
+
+                const fileUrl =
+                    `${BACKEND_URL}/api/local-download/` +
+                    encodeURIComponent(
+                        data.filename
+                    );
+
+
+                showStatus(
+                    "Download ready. Starting download...",
+                    "#4ade80"
+                );
+
+
+                const link =
+                    document.createElement("a");
+
+                link.href =
+                    fileUrl;
+
+                link.download = "";
+
+                document.body.appendChild(link);
+
+                link.click();
+
+                link.remove();
+
+
+                downloadBtn.disabled =
+                    false;
+
+                downloadBtn.textContent =
+                    "Download";
+
+
+                return;
+            }
+
+
+            /*
+             * Backend successfully processed
+             * the request but did not return
+             * an actual downloadable file.
+             */
+
+            showStatus(
+                "Request processed successfully, but the backend did not return a download file.",
+                "#facc15"
+            );
+
+
+            console.warn(
+                "No download URL returned by backend:",
+                data
+            );
+
 
             downloadBtn.disabled =
                 false;
@@ -405,11 +546,27 @@ downloadBtn.addEventListener(
             downloadBtn.textContent =
                 "Download";
 
-            statusMessage.textContent =
-                "Could not connect to backend.";
 
-            statusMessage.style.color =
-                "#ff6b6b";
+        } catch (error) {
+
+            downloadBtn.disabled =
+                false;
+
+            downloadBtn.textContent =
+                "Download";
+
+
+            /*
+             * Show actual backend error
+             * instead of falsely saying
+             * backend connection failed.
+             */
+
+            showStatus(
+                error.message ||
+                "Download request failed.",
+                "#ff6b6b"
+            );
 
 
             console.error(
@@ -417,7 +574,7 @@ downloadBtn.addEventListener(
                 error
             );
 
-        });
+        }
 
     }
 );
@@ -436,20 +593,36 @@ async function testBackend() {
                 `${BACKEND_URL}/api/test`
             );
 
+
+        let data = {};
+
+        try {
+
+            data =
+                await response.json();
+
+        } catch (error) {
+
+            data = {};
+
+        }
+
+
         if (!response.ok) {
 
             throw new Error(
+                data.message ||
                 "Backend test failed."
             );
+
         }
 
-        const data =
-            await response.json();
 
         console.log(
             "Backend:",
             data.message
         );
+
 
     } catch (error) {
 
@@ -464,79 +637,7 @@ async function testBackend() {
 
 
 /* =========================
-   LOCAL FILE TEST
-========================= */
-
-async function checkLocalFiles() {
-
-    try {
-
-        const response =
-            await fetch(
-                `${BACKEND_URL}/api/local-files`
-            );
-
-        if (!response.ok) {
-
-            throw new Error(
-                "Could not read local files."
-            );
-        }
-
-        const data =
-            await response.json();
-
-
-        console.log(
-            "Local files:",
-            data
-        );
-
-
-        if (
-            data.status === "success"
-        ) {
-
-            if (
-                data.files.length === 0
-            ) {
-
-                console.log(
-                    "No local media files found."
-                );
-
-                return;
-            }
-
-
-            console.log(
-                "Available files:",
-                data.files
-            );
-
-        } else {
-
-            console.error(
-                data.message
-            );
-
-        }
-
-    } catch (error) {
-
-        console.error(
-            "Local file check failed:",
-            error
-        );
-
-    }
-
-}
-
-
-/* =========================
    START TESTS
 ========================= */
 
 testBackend();
-
