@@ -14,6 +14,10 @@ app = Flask(__name__)
 CORS(app)
 
 
+# ==================================================
+# HOME
+# ==================================================
+
 @app.route("/")
 def home():
 
@@ -23,6 +27,10 @@ def home():
     })
 
 
+# ==================================================
+# API TEST
+# ==================================================
+
 @app.route("/api/test")
 def api_test():
 
@@ -31,6 +39,10 @@ def api_test():
         "message": "Frontend successfully connected to Flask!"
     })
 
+
+# ==================================================
+# ANALYZE
+# ==================================================
 
 @app.route("/api/analyze", methods=["POST"])
 def analyze():
@@ -46,10 +58,12 @@ def analyze():
                 "message": "No data received."
             }), 400
 
+
         url = data.get(
             "url",
             ""
         ).strip()
+
 
         if not url:
 
@@ -57,6 +71,7 @@ def analyze():
                 "status": "error",
                 "message": "URL is required."
             }), 400
+
 
         if not url.startswith(
             ("http://", "https://")
@@ -67,15 +82,18 @@ def analyze():
                 "message": "Please enter a valid URL."
             }), 400
 
+
         format_type = data.get(
             "format",
             "video"
         ).lower()
 
+
         allowed_formats = [
             "audio",
             "video"
         ]
+
 
         if format_type not in allowed_formats:
 
@@ -86,9 +104,9 @@ def analyze():
             }), 400
 
 
-        # =========================
+        # ==================================================
         # AUDIO PROCESSING
-        # =========================
+        # ==================================================
 
         if format_type == "audio":
 
@@ -102,9 +120,9 @@ def analyze():
             )
 
 
-        # =========================
+        # ==================================================
         # VIDEO PROCESSING
-        # =========================
+        # ==================================================
 
         else:
 
@@ -118,27 +136,30 @@ def analyze():
             )
 
 
-        # =========================
+        # ==================================================
         # PROCESSING ERROR
-        # =========================
+        # ==================================================
 
         if processing_result.get(
             "status"
         ) == "error":
 
             return jsonify({
+
                 "status": "error",
+
                 "message":
                     processing_result.get(
                         "message",
                         "Processing error."
                     )
+
             }), 400
 
 
-        # =========================
-        # SUCCESS RESPONSE
-        # =========================
+        # ==================================================
+        # SUCCESS
+        # ==================================================
 
         return jsonify({
 
@@ -162,16 +183,20 @@ def analyze():
     except Exception as error:
 
         print(
-            "Error:",
+            "Analyze Error:",
             error
         )
+
 
         return jsonify({
 
             "status": "error",
 
             "message":
-                "Something went wrong on the server."
+                "Something went wrong during analysis.",
+
+            "error":
+                str(error)
 
         }), 500
 
@@ -190,28 +215,34 @@ def download():
 
         data = request.get_json()
 
+
         if not data:
 
             return jsonify({
+
                 "status": "error",
+
                 "message":
                     "No download data received."
+
             }), 400
 
 
-        # =========================
+        # ==================================================
         # GET DATA
-        # =========================
+        # ==================================================
 
         url = data.get(
             "url",
             ""
         ).strip()
 
+
         format_type = data.get(
             "format",
             "video"
         ).lower()
+
 
         quality = data.get(
             "quality",
@@ -219,16 +250,19 @@ def download():
         ).lower()
 
 
-        # =========================
+        # ==================================================
         # URL VALIDATION
-        # =========================
+        # ==================================================
 
         if not url:
 
             return jsonify({
+
                 "status": "error",
+
                 "message":
                     "URL is required."
+
             }), 400
 
 
@@ -237,15 +271,18 @@ def download():
         ):
 
             return jsonify({
+
                 "status": "error",
+
                 "message":
                     "Please enter a valid URL."
+
             }), 400
 
 
-        # =========================
+        # ==================================================
         # FORMAT VALIDATION
-        # =========================
+        # ==================================================
 
         if format_type not in [
             "audio",
@@ -253,15 +290,18 @@ def download():
         ]:
 
             return jsonify({
+
                 "status": "error",
+
                 "message":
                     "Invalid format."
+
             }), 400
 
 
-        # =========================
+        # ==================================================
         # QUALITY VALIDATION
-        # =========================
+        # ==================================================
 
         if format_type == "audio":
 
@@ -285,20 +325,24 @@ def download():
         if quality not in allowed_quality:
 
             return jsonify({
+
                 "status": "error",
+
                 "message":
                     "Invalid quality for selected format."
+
             }), 400
 
 
-        # =========================
+        # ==================================================
         # DOWNLOAD FOLDER
-        # =========================
+        # ==================================================
 
         download_folder = os.path.join(
             app.root_path,
             "downloads"
         )
+
 
         os.makedirs(
             download_folder,
@@ -306,39 +350,50 @@ def download():
         )
 
 
-        # =========================
+        # ==================================================
         # UNIQUE FILE NAME
-        # =========================
+        # ==================================================
 
         file_id = uuid.uuid4().hex
 
 
-        # =========================
+        output_template = os.path.join(
+            download_folder,
+            f"{file_id}.%(ext)s"
+        )
+
+
+        # ==================================================
         # VIDEO SETTINGS
-        # =========================
+        #
+        # IMPORTANT:
+        # We DO NOT use:
+        #
+        # bestvideo+bestaudio
+        #
+        # because that can require FFmpeg to merge
+        # separate video/audio streams.
+        #
+        # Instead we prefer a single combined stream.
+        # ==================================================
 
         if format_type == "video":
 
             if quality == "best":
 
                 format_selector = (
-                    "bestvideo+bestaudio/"
+                    "best[ext=mp4]/"
                     "best"
                 )
 
             else:
 
                 format_selector = (
-                    f"bestvideo[height<={quality}]"
-                    "+bestaudio/"
                     f"best[height<={quality}]"
+                    "[ext=mp4]/"
+                    f"best[height<={quality}]/"
+                    "best"
                 )
-
-
-            output_template = os.path.join(
-                download_folder,
-                f"{file_id}.%(ext)s"
-            )
 
 
             ydl_options = {
@@ -356,22 +411,29 @@ def download():
                     True,
 
                 "no_warnings":
+                    False,
+
+                "ignoreerrors":
+                    False,
+
+                "restrictfilenames":
+                    True,
+
+                "overwrites":
                     True
 
             }
 
 
-        # =========================
+        # ==================================================
         # AUDIO SETTINGS
-        # =========================
+        #
+        # No post-processing/conversion is requested here,
+        # so this does not require FFmpeg just to download
+        # the original audio stream.
+        # ==================================================
 
         else:
-
-            output_template = os.path.join(
-                download_folder,
-                f"{file_id}.%(ext)s"
-            )
-
 
             ydl_options = {
 
@@ -388,16 +450,45 @@ def download():
                     True,
 
                 "no_warnings":
+                    False,
+
+                "ignoreerrors":
+                    False,
+
+                "restrictfilenames":
+                    True,
+
+                "overwrites":
                     True
 
             }
 
 
-        # =========================
+        # ==================================================
         # ACTUAL MEDIA DOWNLOAD
-        # =========================
+        # ==================================================
 
         try:
+
+            print(
+                "Starting media download..."
+            )
+
+            print(
+                "URL:",
+                url
+            )
+
+            print(
+                "Format:",
+                format_type
+            )
+
+            print(
+                "Quality:",
+                quality
+            )
+
 
             with yt_dlp.YoutubeDL(
                 ydl_options
@@ -408,17 +499,45 @@ def download():
                     download=True
                 )
 
-                downloaded_file = (
-                    ydl.prepare_filename(info)
+
+                if not info:
+
+                    raise Exception(
+                        "yt-dlp did not return video information."
+                    )
+
+
+                prepared_file = (
+                    ydl.prepare_filename(
+                        info
+                    )
+                )
+
+
+                print(
+                    "yt-dlp prepared file:",
+                    prepared_file
                 )
 
 
         except Exception as download_error:
 
             print(
-                "Media download error:",
+                "================================="
+            )
+
+            print(
+                "MEDIA DOWNLOAD ERROR"
+            )
+
+            print(
                 download_error
             )
+
+            print(
+                "================================="
+            )
+
 
             return jsonify({
 
@@ -429,42 +548,118 @@ def download():
                     "Media could not be downloaded.",
 
                 "error":
-                    str(download_error)
+                    str(download_error),
+
+                "url":
+                    url,
+
+                "format":
+                    format_type,
+
+                "quality":
+                    quality
 
             }), 400
 
 
-        # =========================
-        # FIND DOWNLOADED FILE
-        # =========================
-
-        base_name = os.path.splitext(
-            downloaded_file
-        )[0]
+        # ==================================================
+        # FIND ACTUAL DOWNLOADED FILE
+        # ==================================================
 
         actual_file = None
 
 
-        for filename in os.listdir(
-            download_folder
+        if os.path.isfile(
+            prepared_file
         ):
 
-            file_path = os.path.join(
-                download_folder,
-                filename
+            actual_file = os.path.basename(
+                prepared_file
             )
 
-            if (
-                os.path.isfile(file_path)
-                and filename.startswith(
-                    os.path.basename(base_name)
+
+        else:
+
+            prepared_directory = os.path.dirname(
+                prepared_file
+            )
+
+
+            prepared_base = os.path.splitext(
+                os.path.basename(
+                    prepared_file
                 )
+            )[0]
+
+
+            if os.path.exists(
+                prepared_directory
             ):
 
-                actual_file = filename
+                for filename in os.listdir(
+                    prepared_directory
+                ):
 
-                break
+                    file_path = os.path.join(
+                        prepared_directory,
+                        filename
+                    )
 
+
+                    if not os.path.isfile(
+                        file_path
+                    ):
+
+                        continue
+
+
+                    filename_base = os.path.splitext(
+                        filename
+                    )[0]
+
+
+                    if filename_base == prepared_base:
+
+                        actual_file = filename
+
+                        break
+
+
+        # ==================================================
+        # SECOND FILE SEARCH
+        # ==================================================
+
+        if not actual_file:
+
+            for filename in os.listdir(
+                download_folder
+            ):
+
+                file_path = os.path.join(
+                    download_folder,
+                    filename
+                )
+
+
+                if not os.path.isfile(
+                    file_path
+                ):
+
+                    continue
+
+
+                if filename.startswith(
+                    file_id
+                ):
+
+                    actual_file = filename
+
+                    break
+
+
+        # ==================================================
+        # FILE NOT FOUND
+        # ==================================================
 
         if not actual_file:
 
@@ -474,14 +669,57 @@ def download():
                     "error",
 
                 "message":
-                    "Downloaded file could not be found."
+                    "Downloaded file could not be found.",
+
+                "error":
+                    "yt-dlp completed but the output file was not found on the server.",
+
+                "download_folder":
+                    download_folder
 
             }), 500
 
 
-        # =========================
+        # ==================================================
+        # CHECK FILE SIZE
+        # ==================================================
+
+        actual_file_path = os.path.join(
+            download_folder,
+            actual_file
+        )
+
+
+        try:
+
+            file_size = os.path.getsize(
+                actual_file_path
+            )
+
+        except Exception:
+
+            file_size = 0
+
+
+        if file_size <= 0:
+
+            return jsonify({
+
+                "status":
+                    "error",
+
+                "message":
+                    "Downloaded file is empty.",
+
+                "error":
+                    "The downloaded media file has a size of 0 bytes."
+
+            }), 500
+
+
+        # ==================================================
         # DOWNLOAD URL
-        # =========================
+        # ==================================================
 
         download_url = (
             request.host_url.rstrip("/")
@@ -490,9 +728,23 @@ def download():
         )
 
 
-        # =========================
+        # ==================================================
         # SUCCESS
-        # =========================
+        # ==================================================
+
+        print(
+            "Media downloaded successfully:"
+        )
+
+        print(
+            actual_file
+        )
+
+        print(
+            "File size:",
+            file_size
+        )
+
 
         return jsonify({
 
@@ -514,6 +766,9 @@ def download():
             "filename":
                 actual_file,
 
+            "filesize":
+                file_size,
+
             "download_url":
                 download_url
 
@@ -523,9 +778,21 @@ def download():
     except Exception as error:
 
         print(
-            "Download Error:",
+            "================================="
+        )
+
+        print(
+            "DOWNLOAD REQUEST ERROR"
+        )
+
+        print(
             error
         )
+
+        print(
+            "================================="
+        )
+
 
         return jsonify({
 
@@ -555,17 +822,24 @@ def local_files():
             "downloads"
         )
 
+
         if not os.path.exists(
             download_folder
         ):
 
             return jsonify({
-                "status": "error",
+
+                "status":
+                    "error",
+
                 "message":
                     "Downloads folder not found."
+
             }), 404
 
+
         files = []
+
 
         for filename in os.listdir(
             download_folder
@@ -576,6 +850,7 @@ def local_files():
                 filename
             )
 
+
             if os.path.isfile(
                 file_path
             ):
@@ -584,9 +859,11 @@ def local_files():
                     filename
                 )
 
+
         return jsonify({
 
-            "status": "success",
+            "status":
+                "success",
 
             "message":
                 "Local media files found.",
@@ -604,12 +881,17 @@ def local_files():
             error
         )
 
+
         return jsonify({
 
-            "status": "error",
+            "status":
+                "error",
 
             "message":
-                "Could not read local files."
+                "Could not read local files.",
+
+            "error":
+                str(error)
 
         }), 500
 
@@ -630,10 +912,12 @@ def local_download(filename):
             "downloads"
         )
 
+
         file_path = os.path.join(
             download_folder,
             filename
         )
+
 
         if not os.path.isfile(
             file_path
@@ -641,7 +925,8 @@ def local_download(filename):
 
             return jsonify({
 
-                "status": "error",
+                "status":
+                    "error",
 
                 "message":
                     "File not found."
@@ -663,12 +948,17 @@ def local_download(filename):
             error
         )
 
+
         return jsonify({
 
-            "status": "error",
+            "status":
+                "error",
 
             "message":
-                "Could not download file."
+                "Could not download file.",
+
+            "error":
+                str(error)
 
         }), 500
 
@@ -680,12 +970,16 @@ def local_download(filename):
 if __name__ == "__main__":
 
     app.run(
+
         host="0.0.0.0",
+
         port=int(
             os.environ.get(
                 "PORT",
                 5000
             )
         ),
+
         debug=True
+
     )
